@@ -145,6 +145,8 @@ The reclaim loop will use the same `recordHandler` and `errorHandler` methods de
 
 When a record has been claimed from another consumer, it will have the additional property `reclaimed: true` on the `record` object. The `reclaimed` key will be `undefined` otherwise, as we opt to only add it in when necessary for speed of processing.
 
+_Note: this will overwrite any `reclaimed` key you may have in your original record, so best to avoid it or name it something else._
+
 If you require custom logic when a record is reclaimed from a (potentially) dead consumer, you can perform a simple check such as:
 
 ```js

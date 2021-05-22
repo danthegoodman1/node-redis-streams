@@ -41,6 +41,12 @@ export interface ClassOptions {
   errorHandler: (streamRecord: StreamRecord) => Promise<void>
 }
 
+/**
+ * Record added to stream, formed into { key: value } pairs
+ */
 export interface StreamRecord {
-  redisID: string
+  /**
+   * The ID of the record
+   */
+  recordID: string
 }

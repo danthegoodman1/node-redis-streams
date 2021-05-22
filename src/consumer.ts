@@ -35,7 +35,7 @@ export default class consumer {
    */
   buildKVPairs (itemArray: any): any {
     const retObj: any = {}
-    retObj.redisID = itemArray[0]
+    retObj.recordID = itemArray[0]
     for (let i = 0; i < itemArray[1].length; i += 2) {
       retObj[itemArray[1][i]] = itemArray[1][i + 1]
     }
@@ -60,7 +60,7 @@ export default class consumer {
       let handledError = false
       for (const item of items) {
         const record: StreamRecord = this.buildKVPairs(item)
-        ids.push(record.redisID)
+        ids.push(record.recordID)
         try {
           await this.recordHandler(record)
         } catch (error) { // One of the items caused an error, ack everything we have and exit
@@ -108,7 +108,7 @@ export default class consumer {
           let handledError = false
           for (const item of items) {
             const record: StreamRecord = this.buildKVPairs(item)
-            ids.push(record.redisID)
+            ids.push(record.recordID)
             try {
               await this.recordHandler(record)
             } catch (error) { // One of the items caused an error, ack everything we have and exit

@@ -15,9 +15,9 @@
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/danthegoodman1/rs/issues"
+    "url": "https://github.com/danthegoodman1/node-redis-streams"
   },
-  "homepage": "https://github.com/danthegoodman1/rs#readme",
+  "homepage": "https://github.com/danthegoodman1/node-redis-streams",
   "devDependencies": {
     "@types/ioredis": "^4.26.4",
     "typescript": "^4.2.4"

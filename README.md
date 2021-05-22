@@ -148,9 +148,7 @@ When a record has been claimed from another consumer, it will have the additiona
 If you require custom logic when a record is reclaimed from a (potentially) dead consumer, you can perform a simple check such as:
 
 ```js
-if (record.reclaimed? === true) {
+if (record.reclaimed) {
   // Your custom logic
 }
 ```
-
-The `?` after `.reclaimed` checks if it exists first before checking if it is `true`.

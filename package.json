@@ -1,5 +1,5 @@
 {
-  "name": "rs",
+  "name": "node-rs",
   "version": "1.0.0",
   "description": "Redis Streams Library for Node.js/Typescript with full consumer group recovery",
   "main": "index.js",

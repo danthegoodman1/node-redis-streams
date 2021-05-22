@@ -6,7 +6,6 @@ export default class consumer {
   readLock = false
   exitLoop = false
   abandonLock = false
-  checkAbandonedInterval: NodeJS.Timeout | null = null
   checkAbandonedMS: number
   redisClient: IORedis.Redis
   consumerName: string
@@ -126,15 +125,20 @@ export default class consumer {
     } else {
       this.abandonLock = false
     }
+    setTimeout(() => { // So the stack clears
+      if (!this.exitLoop) {
+        this.checkAbandoned()
+      }
+    }, this.checkAbandonedMS)
   }
 
   async StartConsuming() {
     setTimeout(() => {
       this.readGroup()
     }, 0)
-    this.checkAbandonedInterval = setInterval(() => {
-      // this.checkAbandoned()
-    }, this.checkAbandonedMS)
+    setTimeout(() => {
+      this.checkAbandoned()
+    })
   }
 
   /**
@@ -142,7 +146,6 @@ export default class consumer {
    */
   async StopConsuming() {
     this.exitLoop = true // stop reading items
-    clearInterval(this.checkAbandonedInterval!) // Stop abandoned check
     await new Promise<void>((resolve) => { // Make sure we ack everything we've set to process
       const inter = setInterval(() => {
         if (!this.readLock && !this.abandonLock) {
@@ -151,6 +154,5 @@ export default class consumer {
         }
       }, 100)
     })
-    await this.redisClient.quit() // Disconnect redis (wait for current replies)
   }
 }

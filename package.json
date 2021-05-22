@@ -1,6 +1,6 @@
 {
   "name": "node-redis-streams",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Redis Streams Library for Node.js/Typescript with full consumer group recovery",
   "main": "build/index.js",
   "scripts": {

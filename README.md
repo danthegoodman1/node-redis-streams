@@ -1,3 +1,3 @@
-# node-rs
+# node-redis-streams
 
 Redis Streams Library for Node.js/Typescript with full consumer group recovery

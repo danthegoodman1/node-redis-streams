@@ -1,6 +1,9 @@
 import IORedis from 'ioredis'
 
-export interface ClassOptions {
+/**
+ * Consumer Options
+ */
+export interface ConsumerOptions {
   /**
    * IORedis Client
    */

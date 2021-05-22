@@ -1,3 +1,4 @@
 import consumer from './consumer'
+import { ClassOptions, StreamRecord } from './types/main'
 
-export = module.exports = consumer
+export { consumer as Consumer, ClassOptions, StreamRecord }

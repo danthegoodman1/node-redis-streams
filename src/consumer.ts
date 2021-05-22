@@ -1,6 +1,6 @@
 import IORedis from "ioredis"
 
-import { ClassOptions, StreamRecord } from './types/main'
+import { ConsumerOptions, StreamRecord } from './types/main'
 
 export default class consumer {
   readLock = false
@@ -18,7 +18,7 @@ export default class consumer {
   recordHandler: (streamRecord: StreamRecord) => Promise<void>
   errorHandler: (streamRecord: StreamRecord) => Promise<void>
 
-  constructor (options: ClassOptions) {
+  constructor (options: ConsumerOptions) {
     this.redisClient = options.redisClient
     this.checkAbandonedMS = options.checkAbandonedMS || 1000
     this.consumerName = options.consumerName

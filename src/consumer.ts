@@ -52,84 +52,92 @@ export default class consumer {
 
   async readGroup () {
     this.readLock = true
-    const stream = await this.redisClient.xreadgroup('GROUP', this.groupName, this.consumerName, 'COUNT', this.readItems, 'BLOCK', this.blockIntervalMS, 'STREAMS', this.streamName, '>')
-    if (stream !== null && stream.length > 0) {
-      const items = stream[0][1]
-      const ids = []
-      let handledError = false
-      for (const item of items) {
-        const record: StreamRecord = this.buildKVPairs(item)
-        ids.push(record.recordID)
-        try {
-          await this.recordHandler(record)
-        } catch (error) { // One of the items caused an error, ack everything we have and exit
-          handledError = true
-          await this.ackIDs(ids)
-          await this.errorHandler(record)
+    try {
+      const stream = await this.redisClient.xreadgroup('GROUP', this.groupName, this.consumerName, 'COUNT', this.readItems, 'BLOCK', this.blockIntervalMS, 'STREAMS', this.streamName, '>')
+      if (stream !== null && stream.length > 0) {
+        const items = stream[0][1]
+        const ids = []
+        let handledError = false
+        for (const item of items) {
+          const record: StreamRecord = this.buildKVPairs(item)
+          ids.push(record.recordID)
+          try {
+            await this.recordHandler(record)
+          } catch (error) { // One of the items caused an error, ack everything we have and exit
+            handledError = true
+            await this.ackIDs(ids)
+            await this.errorHandler(record)
+          }
         }
+        if (!handledError) { // If we didn't exit from an error, ack the ids
+          await this.ackIDs(ids)
+        }
+        this.readLock = false
+      } else {
+        this.readLock = false
       }
-      if (!handledError) { // If we didn't exit from an error, ack the ids
-        await this.ackIDs(ids)
-      }
-      this.readLock = false
-    } else {
+      setTimeout(() => { // So the call stack clears
+        if (!this.exitLoop) {
+          this.readGroup()
+        }
+      }, 0)
+    } catch (error) {
       this.readLock = false
     }
-    setTimeout(() => { // So the call stack clears
-      if (!this.exitLoop) {
-        this.readGroup()
-      }
-    }, 0)
   }
 
   async checkAbandoned () {
     this.abandonLock = true
-    const stream = await this.redisClient.xpending(this.streamName, this.groupName, '-', '+', this.readItems)
-    if (stream !== null && stream.length > 1) {
-      const recoveryConsumers: any = {} // consumerName: ['ids']
-      await Promise.all(stream.map(async (record: any[]) => {
-        const id = record[0]
-        const consumer = record[1]
-        const idleTime: number = record[2]
-        const deliveryAttempts = record[3] // we may want to use this later for a DLQ (or DLS I guess)
-        if (idleTime > this.checkAbandonedMS) {
-          if (!recoveryConsumers[consumer]) {
-            recoveryConsumers[consumer] = []
+    try {
+      const stream = await this.redisClient.xpending(this.streamName, this.groupName, '-', '+', this.readItems)
+      if (stream !== null && stream.length > 1) {
+        const recoveryConsumers: any = {} // consumerName: ['ids']
+        await Promise.all(stream.map(async (record: any[]) => {
+          const id = record[0]
+          const consumer = record[1]
+          const idleTime: number = record[2]
+          const deliveryAttempts = record[3] // we may want to use this later for a DLQ (or DLS I guess)
+          if (idleTime > this.checkAbandonedMS) {
+            if (!recoveryConsumers[consumer]) {
+              recoveryConsumers[consumer] = []
+            }
+            recoveryConsumers[consumer].push(id)
           }
-          recoveryConsumers[consumer].push(id)
-        }
-      }))
-      await Promise.all(Object.keys(recoveryConsumers).map(async (consumer) => {
-        const claimed = await this.redisClient.xclaim(this.streamName, this.groupName, consumer, this.checkAbandonedMS, ...recoveryConsumers[consumer])
-        if (claimed !== null && claimed.length > 0) {
-          const items = claimed[0][1]
-          const ids = []
-          let handledError = false
-          for (const item of items) {
-            const record: StreamRecord = this.buildKVPairs(item)
-            ids.push(record.recordID)
-            try {
-              await this.recordHandler(record)
-            } catch (error) { // One of the items caused an error, ack everything we have and exit
-              handledError = true
+        }))
+        await Promise.all(Object.keys(recoveryConsumers).map(async (consumer) => {
+          const claimed = await this.redisClient.xclaim(this.streamName, this.groupName, consumer, this.checkAbandonedMS, ...recoveryConsumers[consumer])
+          if (claimed !== null && claimed.length > 0) {
+            const items = claimed[0][1]
+            const ids = []
+            let handledError = false
+            for (const item of items) {
+              const record: StreamRecord = this.buildKVPairs(item)
+              ids.push(record.recordID)
+              try {
+                await this.recordHandler(record)
+              } catch (error) { // One of the items caused an error, ack everything we have and exit
+                handledError = true
+                await this.ackIDs(ids)
+                await this.errorHandler(record)
+              }
+            }
+            if (!handledError) { // If we didn't exit from an error, ack the ids
               await this.ackIDs(ids)
-              await this.errorHandler(record)
             }
           }
-          if (!handledError) { // If we didn't exit from an error, ack the ids
-            await this.ackIDs(ids)
-          }
+        }))
+        this.abandonLock = false
+      } else {
+        this.abandonLock = false
+      }
+      setTimeout(() => { // So the stack clears
+        if (!this.exitLoop) {
+          this.checkAbandoned()
         }
-      }))
-      this.abandonLock = false
-    } else {
+      }, this.checkAbandonedMS)
+    } catch (error) {
       this.abandonLock = false
     }
-    setTimeout(() => { // So the stack clears
-      if (!this.exitLoop) {
-        this.checkAbandoned()
-      }
-    }, this.checkAbandonedMS)
   }
 
   async StartConsuming() {

@@ -52,4 +52,8 @@ export interface StreamRecord {
    * The ID of the record
    */
   recordID: string
+  /**
+   * Whether the record was reclaimed, will only exist if true
+   */
+  reclaimed?: boolean
 }

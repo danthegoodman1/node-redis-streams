@@ -60,13 +60,14 @@ export default class consumer {
         let handledError = false
         for (const item of items) {
           const record: StreamRecord = this.buildKVPairs(item)
-          ids.push(record.recordID)
           try {
             await this.recordHandler(record)
+            ids.push(record.recordID)
           } catch (error) { // One of the items caused an error, ack everything we have and exit
             handledError = true
             await this.ackIDs(ids)
             await this.errorHandler(record)
+            break
           }
         }
         if (!handledError) { // If we didn't exit from an error, ack the ids
@@ -90,7 +91,7 @@ export default class consumer {
     this.abandonLock = true
     try {
       const stream = await this.redisClient.xpending(this.streamName, this.groupName, '-', '+', this.readItems)
-      if (stream !== null && stream.length > 1) {
+      if (stream !== null && stream.length > 0) {
         const recoveryConsumers: any = {} // consumerName: ['ids']
         await Promise.all(stream.map(async (record: any[]) => {
           const id = record[0]
@@ -107,18 +108,19 @@ export default class consumer {
         await Promise.all(Object.keys(recoveryConsumers).map(async (consumer) => {
           const claimed = await this.redisClient.xclaim(this.streamName, this.groupName, consumer, this.checkAbandonedMS, ...recoveryConsumers[consumer])
           if (claimed !== null && claimed.length > 0) {
-            const items = claimed[0][1]
             const ids = []
             let handledError = false
-            for (const item of items) {
+            for (const item of claimed) {
               const record: StreamRecord = this.buildKVPairs(item)
-              ids.push(record.recordID)
+              record.reclaimed = true
               try {
                 await this.recordHandler(record)
+                ids.push(record.recordID)
               } catch (error) { // One of the items caused an error, ack everything we have and exit
                 handledError = true
                 await this.ackIDs(ids)
                 await this.errorHandler(record)
+                break
               }
             }
             if (!handledError) { // If we didn't exit from an error, ack the ids

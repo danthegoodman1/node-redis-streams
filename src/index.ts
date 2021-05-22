@@ -1,4 +1,4 @@
 import consumer from './consumer'
-import { ClassOptions, StreamRecord } from './types/main'
+import { ConsumerOptions, StreamRecord } from './types/main'
 
-export { consumer as Consumer, ClassOptions, StreamRecord }
+export { consumer as Consumer, ConsumerOptions, StreamRecord }

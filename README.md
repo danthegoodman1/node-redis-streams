@@ -6,6 +6,9 @@ The goal of this library to bring many Kafka (and `kafkajs`) like features to Re
 
 - [Processing Records](#processing-records)
   - [Example](#example)
+- [Class Methods](#class-methods)
+  - [StartConsuming](#startconsuming)
+  - [StopConsuming](#stopconsuming)
 - [ConsumerOptions](#consumeroptions)
   - [consumerName](#consumername)
   - [groupName](#groupname)
@@ -19,6 +22,10 @@ The goal of this library to bring many Kafka (and `kafkajs`) like features to Re
 - [Consumer Group Reclaiming - 'Recovering from permanent failures'](#consumer-group-reclaiming---recovering-from-permanent-failures)
 
 ### Processing Records
+
+Records will be processed sequentially, then all record IDs will be `XACK`'d at the end of the batch. If an error is throw during the batch, all previously processed records will be acknowledge, and the batch will stop processing.
+
+This has been chosen as an alternative to calling `XACK` after every record is processed to minimize calls to streams, optimize for scalability, and follow in `kafkajs`'s logic for handling record consuming.
 
 #### Example
 
@@ -58,6 +65,18 @@ redisClient.xreadgroup('GROUP', this.groupName, this.consumerName, 'COUNT', this
 ```
 
 This means we will join the group `groupName` under the consumer name `consumerName`, pulling a maximum of `readItems` records. We will block for up to `blockIntervalMS` milliseconds, and being the next `XREADGROUP` immediately after.
+
+### Class Methods
+
+#### StartConsuming
+
+This will begin consuming records by starting the two loops (processor and reclaim).
+
+#### StopConsuming
+
+This will gracefully stop consuming records. It will finish processing what ever records have currently been pulled, and prevent any future records from being pulled from either the normal loop or the reclaim loop.
+
+If you stop the package/IORedis instance without calling this method, you may end up with processed but unacknowledged messages, or with abandoned messages that will need to be reclaimed.
 
 ### ConsumerOptions
 
@@ -121,6 +140,8 @@ One of the nicest parts of Kafka is that the consumer groups manage when one con
 `node-redis-streams` handles this for you using the `checkAbandonedMS` option.
 
 There is a second polling interval that checks purely for `XPENDING` records that have been pending longer than the `checkAbandonedMS` (in milliseconds). When a record has passed that number, the consumer will claim those records and process them using the same logic as normal records.
+
+The reclaim loop will use the same `recordHandler` and `errorHandler` methods defined in the `Consumer` initialization.
 
 When a record has been claimed from another consumer, it will have the additional property `reclaimed: true` on the `record` object. The `reclaimed` key will be `undefined` otherwise, as we opt to only add it in when necessary for speed of processing.
 

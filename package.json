@@ -1,0 +1,23 @@
+{
+  "name": "rs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danthegoodman1/rs.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/danthegoodman1/rs/issues"
+  },
+  "homepage": "https://github.com/danthegoodman1/rs#readme",
+  "devDependencies": {
+    "typescript": "^4.2.4"
+  }
+}

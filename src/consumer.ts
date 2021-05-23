@@ -13,6 +13,7 @@ export default class consumer {
   readItems: number
   blockIntervalMS: number
   streamName: string
+  disableAbandonedCheck: boolean
   // See `types/main.d.ts` for what these do
   recordHandler?: (streamRecord: StreamRecord) => Promise<void>
   batchHandler?: (streamRecords: StreamRecord[]) => Promise<void>
@@ -26,6 +27,7 @@ export default class consumer {
     this.readItems = options.readItems
     this.blockIntervalMS = options.blockIntervalMS || 0
     this.streamName = options.streamName
+    this.disableAbandonedCheck = options.disableAbandonedCheck || false
     this.recordHandler = options.recordHandler
     this.batchHandler = options.batchHandler
     this.errorHandler = options.errorHandler
@@ -162,9 +164,11 @@ export default class consumer {
     setTimeout(() => {
       this.readGroup()
     }, 0)
-    setTimeout(() => {
-      this.checkAbandoned()
-    })
+    if (!this.disableAbandonedCheck) {
+      setTimeout(() => {
+        this.checkAbandoned()
+      })
+    }
   }
 
   /**

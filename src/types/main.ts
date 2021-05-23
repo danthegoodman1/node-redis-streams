@@ -19,6 +19,12 @@ export interface ConsumerOptions {
    */
   checkAbandonedMS?: number
   /**
+   * Disable the second loop to check for abandoned messages from other consumers in the group
+   *
+   * default: false
+   */
+  disableAbandonedCheck?: boolean
+  /**
    * Consumer group name
    */
   groupName: string

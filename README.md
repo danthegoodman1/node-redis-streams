@@ -21,6 +21,7 @@ The goal of this package to bring many Kafka (and `kafkajs`) like features to Re
     - [streamName](#streamname)
     - [blockIntervalMS](#blockintervalms)
     - [checkAbandonedIntervalMS](#checkabandonedintervalms)
+    - [disableAbandonedCheck](#disableabandonedcheck)
   - [Consumer Group Reclaiming - 'Recovering from permanent failures'](#consumer-group-reclaiming---recovering-from-permanent-failures)
   - [Best Practices](#best-practices)
     - [Processing long running records](#processing-long-running-records)
@@ -182,6 +183,13 @@ The time in milliseconds to `BLOCK` when performing an `XREADGROUP`.
 The time in milliseconds to wait before calling `XPENDING` again. It will also ensure that a record has been pending for at least this time before performing `XCLAIM`.
 
 It is important to choose this number carefully, as if your batch takes longer than this to process, and you only call `XACK` at the end of the batch, then this can detect falsely abandoned records. See the [Best Practices](#best-practices) section for more.
+
+
+#### disableAbandonedCheck
+
+Setting this to true will disable the second loop to check for abandoned messages from other consumers in the group. This will cause `checkAbandonedIntervalMS` to have no effect. If you disable this make sure you know exactly what you are doing as losing abandoned messages is dangerous.
+
+If you want to have quick checks for abandoned messages, but only a few of your consumers actually doing those checks, this is a useful feature.
 
 ### Consumer Group Reclaiming - 'Recovering from permanent failures'
 

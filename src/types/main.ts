@@ -37,11 +37,15 @@ export interface ConsumerOptions {
   /**
    * Function that is called on each stream record in the batch. If the function throws an error, all currently processed items will be acknowledged, and the remaining items will be dropped
    */
-  recordHandler: (streamRecord: StreamRecord) => Promise<void>
+  recordHandler?: (streamRecord: StreamRecord) => Promise<void>
+  /**
+   * Function called on the entire batch, if defined. If used in conjunction with `recordHandler`, `batchHandler` will be called first.
+   */
+  batchHandler?: (records: StreamRecord[]) => Promise<void>
   /**
    * Function called on the record that threw an error, after all previously processes messages are acknowledged
    */
-  errorHandler: (streamRecord: StreamRecord) => Promise<void>
+  errorHandler?: (streamRecord: StreamRecord) => Promise<void>
 }
 
 /**

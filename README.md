@@ -15,6 +15,7 @@ The goal of this library to bring many Kafka (and `kafkajs`) like features to Re
   - [readItems](#readitems)
   - [recordHandler](#recordhandler)
   - [errorHandler](#errorhandler)
+  - [batchHandler](#batchhandler)
   - [redisClient](#redisclient)
   - [streamName](#streamname)
   - [blockIntervalMS](#blockintervalms)
@@ -110,7 +111,48 @@ When an error is thrown, it will immediately `XACK` all of the previously proces
 
 #### errorHandler
 
-`errorHandler` is fired when a record within a pulled group of records throws an error. This provides a built-in opportunity to perform custom logic like inserting into a DLQ (or Dead-letter stream if you will), log appropriately, and more.
+`errorHandler` is fired when `recordHandler` throws an error. This provides a built-in opportunity to perform custom logic like inserting into a DLQ (or Dead-letter stream if you will), log appropriately, and more.
+
+#### batchHandler
+
+`batchHandler` is fired before `recordHandler` (if both used), and is used to process the entire batch at once.
+
+This is considered advanced usage of this package, as there is no fail-safe record acknowledgement handled for you in `batchHandler`, you are in charge of calling `XACK` on acknowledged records. There is no harm in calling `XACK` multiple times on the same record other than unnecessary calls to Redis, so technically using `batchHandler` and `recordHandler`/`errorHandler` together shouldn't cause major issues, but it would be wise to avoid.
+
+Example of managing calls to `XACK` within the `batchHandler` function:
+
+```js
+const nrs = require('node-redis-streams')
+const Redis = require('ioredis')
+
+const reader = new Redis()
+
+const streamConsumer = new nrs.Consumer({
+  consumerName: 'example_consumer',
+  groupName: 'example_group',
+  readItems: 50,
+  batchHandler: async (records) => {
+    const ids = []
+    try {
+      for (const record of records) {
+        // Some logic...
+
+        // Pushing to this array should be last to ensure we only push successfully processed records
+        ids.push(record.recordID)
+      }
+    } catch (error) {
+      // Error logic...
+    }
+    // XACK all of the successfully processed messages
+    redisClient.XACK('example_stream', 'example_group', ...ids)
+  }
+  redisClient: reader,
+  streamName: 'example_stream',
+  blockIntervalMS: 1000,
+  checkAbandonedMS: 2000
+})
+time.StartConsuming()
+```
 
 #### redisClient
 
@@ -143,7 +185,7 @@ There is a second polling interval that checks purely for `XPENDING` records tha
 
 The reclaim loop will use the same `recordHandler` and `errorHandler` methods defined in the `Consumer` initialization.
 
-When a record has been claimed from another consumer, it will have the additional property `reclaimed: true` on the `record` object. The `reclaimed` key will be `undefined` otherwise, as we opt to only add it in when necessary for speed of processing.
+When a record has been claimed from another consumer, it will have the additional property `reclaimed: true` on the `record` object. The `reclaimed` key will be `false` otherwise.
 
 _Note: this will overwrite any `reclaimed` key you may have in your original record, so best to avoid it or name it something else._
 

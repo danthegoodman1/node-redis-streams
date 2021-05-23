@@ -14,8 +14,9 @@ export default class consumer {
   blockIntervalMS: number
   streamName: string
   // See `types/main.d.ts` for what these do
-  recordHandler: (streamRecord: StreamRecord) => Promise<void>
-  errorHandler: (streamRecord: StreamRecord) => Promise<void>
+  recordHandler?: (streamRecord: StreamRecord) => Promise<void>
+  batchHandler?: (streamRecords: StreamRecord[]) => Promise<void>
+  errorHandler?: (streamRecord: StreamRecord) => Promise<void>
 
   constructor (options: ConsumerOptions) {
     this.redisClient = options.redisClient
@@ -26,15 +27,17 @@ export default class consumer {
     this.blockIntervalMS = options.blockIntervalMS || 0
     this.streamName = options.streamName
     this.recordHandler = options.recordHandler
+    this.batchHandler = options.batchHandler
     this.errorHandler = options.errorHandler
   }
 
   /**
    * Builds {key: value} pairs out of the flat list obtained from stream
    */
-  buildKVPairs (itemArray: any): any {
+  buildKVPairs (itemArray: any, isReclaimed: boolean): any {
     const retObj: any = {}
     retObj.recordID = itemArray[0]
+    retObj.reclaimed = isReclaimed
     for (let i = 0; i < itemArray[1].length; i += 2) {
       retObj[itemArray[1][i]] = itemArray[1][i + 1]
     }
@@ -58,18 +61,25 @@ export default class consumer {
         const items = stream[0][1]
         const ids = []
         let handledError = false
-        for (const item of items) {
-          const record: StreamRecord = this.buildKVPairs(item)
-          try {
-            await this.recordHandler(record)
-            ids.push(record.recordID)
-          } catch (error) { // One of the items caused an error, ack everything we have and exit
-            handledError = true
-            await this.ackIDs(ids)
-            await this.errorHandler(record)
-            break
-          }
+        const builtItems = items.map((item) => this.buildKVPairs(item, false))
+        if (this.batchHandler) {
+          await this.batchHandler(builtItems)
         }
+        if (this.recordHandler) {
+          for (const record of builtItems) {
+            try {
+                await this.recordHandler(record)
+                ids.push(record.recordID)
+              } catch (error) { // One of the items caused an error, ack everything we have and exit
+                handledError = true
+                await this.ackIDs(ids)
+                if (this.errorHandler) {
+                  await this.errorHandler(record)
+                }
+                break
+              }
+            }
+          }
         if (!handledError) { // If we didn't exit from an error, ack the ids
           await this.ackIDs(ids)
         }
@@ -110,17 +120,23 @@ export default class consumer {
           if (claimed !== null && claimed.length > 0) {
             const ids = []
             let handledError = false
-            for (const item of claimed) {
-              const record: StreamRecord = this.buildKVPairs(item)
-              record.reclaimed = true
-              try {
-                await this.recordHandler(record)
-                ids.push(record.recordID)
-              } catch (error) { // One of the items caused an error, ack everything we have and exit
-                handledError = true
-                await this.ackIDs(ids)
-                await this.errorHandler(record)
-                break
+            const builtItems = claimed.map((item) => this.buildKVPairs(item, true))
+            if (this.batchHandler) {
+              await this.batchHandler(builtItems)
+            }
+            if (this.recordHandler) {
+              for (const record of builtItems) {
+                try {
+                  await this.recordHandler(record)
+                  ids.push(record.recordID)
+                } catch (error) { // One of the items caused an error, ack everything we have and exit
+                  handledError = true
+                  await this.ackIDs(ids)
+                  if (this.errorHandler) {
+                    await this.errorHandler(record)
+                  }
+                  break
+                }
               }
             }
             if (!handledError) { // If we didn't exit from an error, ack the ids

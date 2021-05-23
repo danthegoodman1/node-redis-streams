@@ -59,5 +59,5 @@ export interface StreamRecord {
   /**
    * Whether the record was reclaimed, will only exist if true
    */
-  reclaimed?: boolean
+  reclaimed: boolean
 }

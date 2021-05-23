@@ -1,26 +1,32 @@
 # node-redis-streams <!-- omit in toc -->
 
-Redis Streams Library for Node.js/Typescript with full consumer group recovery
+Redis Streams Package for Node.js/Typescript with full consumer group recovery
 
-The goal of this library to bring many Kafka (and `kafkajs`) like features to Redis Streams.
+The goal of this package to bring many Kafka (and `kafkajs`) like features to Redis Streams.
 
-- [Processing Records](#processing-records)
-  - [Example](#example)
-- [Class Methods](#class-methods)
-  - [StartConsuming](#startconsuming)
-  - [StopConsuming](#stopconsuming)
-- [ConsumerOptions](#consumeroptions)
-  - [consumerName](#consumername)
-  - [groupName](#groupname)
-  - [readItems](#readitems)
-  - [recordHandler](#recordhandler)
-  - [errorHandler](#errorhandler)
-  - [batchHandler](#batchhandler)
-  - [redisClient](#redisclient)
-  - [streamName](#streamname)
-  - [blockIntervalMS](#blockintervalms)
-  - [checkAbandonedIntervalMS](#checkabandonedintervalms)
-- [Consumer Group Reclaiming - 'Recovering from permanent failures'](#consumer-group-reclaiming---recovering-from-permanent-failures)
+- [Documentation](#documentation)
+  - [Processing Records](#processing-records)
+    - [Example](#example)
+  - [Class Methods](#class-methods)
+    - [StartConsuming](#startconsuming)
+    - [StopConsuming](#stopconsuming)
+  - [ConsumerOptions](#consumeroptions)
+    - [consumerName](#consumername)
+    - [groupName](#groupname)
+    - [readItems](#readitems)
+    - [recordHandler](#recordhandler)
+    - [errorHandler](#errorhandler)
+    - [batchHandler](#batchhandler)
+    - [redisClient](#redisclient)
+    - [streamName](#streamname)
+    - [blockIntervalMS](#blockintervalms)
+    - [checkAbandonedIntervalMS](#checkabandonedintervalms)
+  - [Consumer Group Reclaiming - 'Recovering from permanent failures'](#consumer-group-reclaiming---recovering-from-permanent-failures)
+  - [Best Practices](#best-practices)
+    - [Processing long running records](#processing-long-running-records)
+    - [Processing multiple streams on the same server/pod](#processing-multiple-streams-on-the-same-serverpod)
+
+## Documentation
 
 ### Processing Records
 
@@ -119,7 +125,7 @@ When an error is thrown, it will immediately `XACK` all of the previously proces
 
 This is considered advanced usage of this package, as there is no fail-safe record acknowledgement handled for you in `batchHandler`, you are in charge of calling `XACK` on acknowledged records. There is no harm in calling `XACK` multiple times on the same record other than unnecessary calls to Redis, so technically using `batchHandler` and `recordHandler`/`errorHandler` together shouldn't cause major issues, but it would be wise to avoid.
 
-Example of managing calls to `XACK` within the `batchHandler` function:
+The following is an example of managing calls to `XACK` within the `batchHandler` function while also ensuring all successfully processed records get acknowledged in the event of a record processing error:
 
 ```js
 const nrs = require('node-redis-streams')
@@ -175,6 +181,8 @@ The time in milliseconds to `BLOCK` when performing an `XREADGROUP`.
 
 The time in milliseconds to wait before calling `XPENDING` again. It will also ensure that a record has been pending for at least this time before performing `XCLAIM`.
 
+It is important to choose this number carefully, as if your batch takes longer than this to process, and you only call `XACK` at the end of the batch, then this can detect falsely abandoned records. See the [Best Practices](#best-practices) section for more.
+
 ### Consumer Group Reclaiming - 'Recovering from permanent failures'
 
 One of the nicest parts of Kafka is that the consumer groups manage when one consumer dies and never returns. As for Redis Streams, this is something we must implement ourselves using the various commands.
@@ -183,7 +191,7 @@ One of the nicest parts of Kafka is that the consumer groups manage when one con
 
 There is a second polling interval that checks purely for `XPENDING` records that have been pending longer than the `checkAbandonedMS` (in milliseconds). When a record has passed that number, the consumer will claim those records and process them using the same logic as normal records.
 
-The reclaim loop will use the same `recordHandler` and `errorHandler` methods defined in the `Consumer` initialization.
+The reclaim loop will use the same `recordHandler` and `errorHandler` methods defined in the `Consumer` initialization, or the same `batchHandler`.
 
 When a record has been claimed from another consumer, it will have the additional property `reclaimed: true` on the `record` object. The `reclaimed` key will be `false` otherwise.
 
@@ -196,3 +204,20 @@ if (record.reclaimed) {
   // Your custom logic
 }
 ```
+
+### Best Practices
+
+#### Processing long running records
+
+If individual records take a long time to process, the abandoned record reclaimer might detect falsely abandoned records. Solutions would include:
+
+- Reducing the number of `readItems` pulled
+- Increasing the number of consumers (with unique consumer names, could run multiple on the same server/pod with different names)
+- Increasing the `checkIntervalMS`
+- Calling `XACK` after each individual record is processed by using `batchHandler`
+
+#### Processing multiple streams on the same server/pod
+
+This package can be instantiated multiple times to handle the processing of multiple streams within the same process.
+
+You could even run multiple consumers of the same stream, as long as you instantiate each `Consumer` with a different `consumerName`.

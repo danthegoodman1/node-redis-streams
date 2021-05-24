@@ -163,9 +163,9 @@ time.StartConsuming()
 
 #### redisClient
 
-A `ioredis` redis client.
+An `ioredis` redis client.
 
-**Note:** using a client that never performs a write is required here, as redis cannot shared a streams connection with a client that writes. You can to another read-only client by calling:
+**Note:** using a client that never performs a write is required here, as Redis Streams cannot share a streams connection with a client that writes. You can to another read-only client by calling:
 ```js
 readClient = redisClient.duplicate()
 ```

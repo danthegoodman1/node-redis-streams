@@ -17,7 +17,7 @@ export default class consumer {
   // See `types/main.d.ts` for what these do
   recordHandler?: (streamRecord: StreamRecord) => Promise<void>
   batchHandler?: (streamRecords: StreamRecord[]) => Promise<void>
-  errorHandler?: (streamRecord: StreamRecord) => Promise<void>
+  errorHandler?: (streamRecord: StreamRecord, error: unknown) => Promise<void>
 
   constructor (options: ConsumerOptions) {
     this.redisClient = options.redisClient
@@ -76,7 +76,7 @@ export default class consumer {
                 handledError = true
                 await this.ackIDs(ids)
                 if (this.errorHandler) {
-                  await this.errorHandler(record)
+                  await this.errorHandler(record, error)
                 }
                 break
               }
@@ -135,7 +135,7 @@ export default class consumer {
                   handledError = true
                   await this.ackIDs(ids)
                   if (this.errorHandler) {
-                    await this.errorHandler(record)
+                    await this.errorHandler(record, error)
                   }
                   break
                 }

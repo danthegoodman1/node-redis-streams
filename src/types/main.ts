@@ -51,7 +51,7 @@ export interface ConsumerOptions {
   /**
    * Function called on the record that threw an error, after all previously processes messages are acknowledged
    */
-  errorHandler?: (streamRecord: StreamRecord) => Promise<void>
+  errorHandler?: (streamRecord: StreamRecord, error: unknown) => Promise<void>
 }
 
 /**
